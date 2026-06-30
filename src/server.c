@@ -67,6 +67,8 @@ void server_run(void) {
     close(master);
     socket_cleanup();
 
-    if (child_pid > 0)
+    if (child_pid > 0) {
+        kill(child_pid, SIGTERM);
         waitpid(child_pid, NULL, 0);
+    }
 }

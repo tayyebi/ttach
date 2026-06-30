@@ -11,7 +11,10 @@
     <img src="https://img.shields.io/github/license/tayyebi/ttach?style=flat&color=green" alt="License">
   </a>
   <a href="https://github.com/tayyebi/ttach/actions/workflows/release.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/tayyebi/ttach/release.yml?branch=main&style=flat&label=builds&color=orange" alt="Builds">
+    <img src="https://img.shields.io/github/actions/workflow/status/tayyebi/ttach/release.yml?branch=main&style=flat&label=release+builds&color=orange" alt="Release builds">
+  </a>
+  <a href="https://github.com/tayyebi/ttach/actions/workflows/ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/tayyebi/ttach/ci.yml?branch=main&style=flat&label=tests&color=brightgreen" alt="CI">
   </a>
   <img src="https://img.shields.io/badge/language-C99-00599C?style=flat" alt="C99">
   <img src="https://img.shields.io/badge/dependencies-zero-brightgreen?style=flat" alt="Zero deps">
@@ -101,6 +104,53 @@ ttach
 ```
 
 That's it. No arguments. No flags. No session names.
+
+---
+
+### 🔌 Shell Integration
+
+Add one of these snippets to `~/.bashrc` or `~/.zshrc` for automatic reconnect when you SSH in:
+
+**Option A — Auto-attach if a session exists, start one if not:**
+
+```bash
+# ~/.bashrc or ~/.zshrc
+if [ -z "$TTACH_SESSION" ] && command -v ttach >/dev/null 2>&1; then
+    export TTACH_SESSION=1
+    # Check if socket exists
+    sock="$XDG_RUNTIME_DIR/ttach.sock"
+    [ -z "$XDG_RUNTIME_DIR" ] && sock="/tmp/ttach-$(id -u).sock"
+    if [ -S "$sock" ] 2>/dev/null; then
+        exec ttach
+    else
+        # First time — start server in background, then attach
+        nohup ttach >/dev/null 2>&1 &
+        sleep 0.3
+        exec ttach
+    fi
+fi
+```
+
+**Option B — Only attach if a session already exists (fall through to normal shell otherwise):**
+
+```bash
+# ~/.bashrc or ~/.zshrc
+sock="$XDG_RUNTIME_DIR/ttach.sock"
+[ -z "$XDG_RUNTIME_DIR" ] && sock="/tmp/ttach-$(id -u).sock"
+if [ -z "$TTACH_SESSION" ] && [ -S "$sock" ] 2>/dev/null && command -v ttach >/dev/null 2>&1; then
+    export TTACH_SESSION=1
+    exec ttach
+fi
+```
+
+**What happens:**
+
+| You do | Result |
+|--------|--------|
+| `ssh server` | 🪢 Automatically attaches to your session |
+| Network drops | 🐚 Shell keeps running inside ttach |
+| `ssh server` again | 🪢 Reattaches exactly where you left off |
+| `exit` inside the session | 🧹 Shell exits, ttach server cleans up, SSH disconnects |
 
 ```mermaid
 sequenceDiagram

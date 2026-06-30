@@ -7,9 +7,12 @@ SRC = src/main.c src/server.c src/client.c src/pty.c \
 OBJ = $(SRC:.c=.o)
 TARGET = ttach
 
-.PHONY: all clean
+.PHONY: all clean test
 
 all: $(TARGET)
+
+test: $(TARGET)
+	python3 test/test_ttach.py
 
 $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
