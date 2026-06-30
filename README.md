@@ -32,19 +32,23 @@ No panes. No windows. No tabs. No scrollback. No config files. No plugins.
 
 ```mermaid
 flowchart LR
-    A[👤 You] -- SSH / terminal --> B[💻 ttach]
-    B -- creates --> C[📦 PTY + Shell]
-    B -- listens on --> D[🔌 Unix socket]
+    A[You]
+    B[ttach]
+    C[PTY + Shell]
+    D[Unix socket]
+    E[Network drops]
+    F[You reconnect]
+
+    A -- SSH / terminal --> B
+    B -- creates --> C
+    B -- listens on --> D
     C <--> D
     D <--> B
-
-    E[💥 Network drops]
     B -.-> E
     E -.-> B
-
-    F[👤 You reconnect]
     F -- run ttach again --> B
     B -- attaches to --> C
+
     style A fill:#d4f0ff,stroke:#333
     style B fill:#fff3d4,stroke:#333
     style C fill:#d4ffd4,stroke:#333
@@ -100,27 +104,26 @@ That's it. No arguments. No flags. No session names.
 
 ```mermaid
 sequenceDiagram
-    participant U as 👤 You
-    participant T as 🪢 ttach
-    participant S as 🐚 Shell
+    participant U as You
+    participant T as ttach
+    participant S as Shell
 
     Note over U,S: First session
     U->>T: ttach
     T->>S: fork + exec login shell
-    T-->>U: attached 🟢
-    U-->>T: type, run commands, etc.
+    T-->>U: attached
+    U-->>T: keystrokes
     T-->>S: forward keystrokes
 
     Note over U,S: Disconnection
-    U--xT: 🔌 SSH drops
+    U--xT: SSH drops
     Note over T: Shell stays alive
-    Note over T: Waits for client
 
     Note over U,S: Reconnection
     U->>T: ttach
     T->>T: connect to socket
-    T-->>U: reattached 🟢
-    U-->>T: continue where you left off
+    T-->>U: reattached
+    U-->>T: keystrokes
     T-->>S: forward keystrokes
 ```
 
@@ -130,25 +133,23 @@ sequenceDiagram
 
 ```mermaid
 flowchart TB
-    subgraph server["🪢 ttach server (long-running process)"]
-        PTY["📦 PTY master"]
-        SHELL["🐚 Shell (bash/zsh/...)」]
-        SOCK["🔌 Unix domain socket"]
-        RELAY["🔄 poll() relay loop"]
+    subgraph server[ttach server]
+        PTY[PTY master]
+        SHELL[Shell]
+        SOCK[Unix socket]
+        RELAY[Relay loop]
         PTY <--> RELAY
         SOCK <--> RELAY
         PTY --> SHELL
     end
 
-    subgraph client["🪢 ttach client (short-lived)"]
-        CLI_PTY["💻 Your terminal"]
-        CLIENT_RELAY["🔄 poll() relay loop"]
-        CLI_PTY <--> CLIENT_RELAY
+    subgraph client[ttach client]
+        TERM[Your terminal]
+        CRELAY[Relay loop]
+        TERM <--> CRELAY
     end
 
-    client -- "4-byte handshake (window size)" --> server
-    client -- "keystrokes →" --> server
-    server -- "shell output →" --> client
+    client --> server
 
     style server fill:#fff3d4,stroke:#333
     style client fill:#d4f0ff,stroke:#333
