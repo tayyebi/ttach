@@ -8,12 +8,17 @@ OBJ = $(SRC:.c=.o)
 TARGET = ttach
 TEST_TARGET = test/test_ttach
 
-.PHONY: all clean test
+.PHONY: all clean test test-all integration-test
 
 all: $(TARGET)
 
 test: $(TARGET) $(TEST_TARGET)
 	./$(TEST_TARGET)
+
+integration-test: $(TARGET)
+	sh test/integration.sh ./$(TARGET)
+
+test-all: test integration-test
 
 $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
