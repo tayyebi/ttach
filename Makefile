@@ -3,7 +3,7 @@ CFLAGS ?= -Wall -Wextra -Wpedantic -std=c99 -D_DEFAULT_SOURCE
 LDFLAGS ?=
 
 SRC = src/main.c src/server.c src/client.c src/pty.c \
-      src/socket.c src/relay.c src/signal.c
+      src/socket.c src/relay.c src/signal.c src/state.c
 OBJ = $(SRC:.c=.o)
 TARGET = ttach
 TEST_TARGET = test/test_ttach

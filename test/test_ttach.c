@@ -10,6 +10,7 @@
 #include <poll.h>
 #include <pwd.h>
 #include <fcntl.h>
+#include <time.h>
 
 static char socket_path[256];
 static pid_t server_pid = -1;
@@ -333,6 +334,84 @@ int main(int argc, char **argv) {
              do_roundtrip("echo AFTER_BACKLOG", "AFTER_BACKLOG"));
     }
     stop_server();
+
+    /* ---------- state persistence ---------- */
+    fprintf(stderr, "\n--- state persistence ---\n");
+    {
+        char state_file[1024];
+        const char *home = getenv("HOME");
+        if (!home || !home[0]) home = "/tmp";
+        snprintf(state_file, sizeof(state_file),
+                 "%s/.local/share/ttach/state", home);
+        unlink(state_file);
+
+        srv_start_or_die(binary, "state-save");
+        TEST("roundtrip before save",
+             do_roundtrip("echo BEFORE_SAVE", "BEFORE_SAVE"));
+
+        kill(server_pid, SIGTERM);
+        waitpid(server_pid, NULL, 0);
+        server_pid = -1;
+        msleep(500);
+
+        int saved = (access(state_file, F_OK) == 0);
+        TEST("state file created on SIGTERM", saved);
+
+        if (saved) {
+            FILE *sf = fopen(state_file, "r");
+            char line[1024];
+            int has_cwd = 0, has_time = 0;
+            while (fgets(line, sizeof(line), sf)) {
+                if (strncmp(line, "cwd=", 4) == 0) has_cwd = 1;
+                if (strncmp(line, "time=", 5) == 0) has_time = 1;
+            }
+            fclose(sf);
+            TEST("state file contains cwd", has_cwd);
+            TEST("state file contains timestamp", has_time);
+        }
+    }
+
+    /* ---------- state restore ---------- */
+    fprintf(stderr, "\n--- state restore ---\n");
+    {
+        char state_file[1024];
+        const char *home = getenv("HOME");
+        if (!home || !home[0]) home = "/tmp";
+        snprintf(state_file, sizeof(state_file),
+                 "%s/.local/share/ttach/state", home);
+        unlink(state_file);
+
+        FILE *sf = fopen(state_file, "w");
+        if (sf) {
+            fprintf(sf, "cwd=/tmp\n");
+            fprintf(sf, "time=%ld\n", (long)time(NULL));
+            fprintf(sf, "ev_TTACH_STATE_TEST=restored\n");
+            fclose(sf);
+
+            srv_start_or_die(binary, "state-restore");
+            TEST("server starts with saved state file present",
+                 access(socket_path, F_OK) == 0);
+
+            int s = connect_socket();
+            int ok = 0;
+            int got_restore = 0;
+            if (s >= 0) {
+                write_all(s, (char *)hshake_24_80, 4);
+                char buf[65536] = {0};
+                int n = read_until(s, buf, sizeof(buf), "restored session", 8000);
+                got_restore = (n > 0 && strstr(buf, "restored session"));
+
+                write_all(s, "echo \"RESTORED=$TTACH_STATE_TEST\"\n", 34);
+                n = read_until(s, buf, sizeof(buf), "RESTORED=restored", 8000);
+                ok = (n > 0 && strstr(buf, "RESTORED=restored"));
+                close(s);
+            }
+            TEST("restore message printed on attach", got_restore);
+            TEST("environment variable restored from state", ok);
+            stop_server();
+            unlink(state_file);
+        }
+    }
 
     msleep(500);
     unlink(socket_path);

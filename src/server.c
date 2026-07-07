@@ -3,6 +3,7 @@
 #include "socket.h"
 #include "relay.h"
 #include "signal.h"
+#include "state.h"
 
 #include <sys/wait.h>
 #include <stdlib.h>
@@ -28,6 +29,8 @@ void server_run(void) {
         perror("pty: failed to spawn shell");
         exit(1);
     }
+
+    state_restore(master);
 
     srv = socket_create();
     if (srv < 0) {
@@ -68,6 +71,7 @@ void server_run(void) {
     socket_cleanup();
 
     if (child_pid > 0) {
+        state_save(child_pid);
         kill(child_pid, SIGTERM);
         waitpid(child_pid, NULL, 0);
     }
